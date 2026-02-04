@@ -173,7 +173,7 @@ def plot_comparison_without_chaos(protocol_data, output_dir):
     )
 
     plt.savefig(
-        os.path.join(output_dir, "protocols_comparison_without_chaos.pdf"),
+        os.path.join(output_dir, "protocols_comparison_without_chaos.jpg"),
         bbox_inches="tight"
     )
     plt.close()
@@ -260,7 +260,7 @@ def plot_statistics_bars(protocol_data, output_dir, suffix, time_filter):
     ax.grid(axis="y", linestyle="--", alpha=0.3)
 
     plt.savefig(
-        os.path.join(output_dir, f"statistics_{suffix.lower().replace(' ', '_')}.pdf"),
+        os.path.join(output_dir, f"statistics_{suffix.lower().replace(' ', '_')}.jpg"),
         bbox_inches="tight"
     )
     plt.close()
