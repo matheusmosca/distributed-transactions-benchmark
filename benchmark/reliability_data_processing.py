@@ -257,12 +257,6 @@ def main():
             'total_failure_rate': rollback_rate + failure_rate
         }
 
-        with open(os.path.join(output_dir, f"{protocol}_consistency_consolidated.json"), "w") as f:
-            json.dump({
-                'protocol': protocol,
-                **consistency
-            }, f, indent=4)
-
     if not reliability_stats:
         sys.exit(1)
 

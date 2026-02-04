@@ -23,16 +23,13 @@ export const options = {
   },
 };
 
-// Funções utilitárias para gerar dados aleatórios
 function getRandomInt(min, max) {
   min = Math.ceil(min);
   max = Math.floor(max);
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// A função principal que será executada em loop
 export function createOrder() {
-  // Gera dados aleatórios
   const quantity = 1;
   const amount = 1;
   const userId = `6ba7b810-9dad-11d1-80b4-00c04fd43001`; 
@@ -50,10 +47,8 @@ export function createOrder() {
     },
   };
 
-  // Requisição HTTP POST
   const res = http.post(BASE_URL, payload, params);
 
-  // Verificação (Check)
   check(res, {
     'status is 200 or 202': (r) => r.status === 200 || r.status === 202,
   });
