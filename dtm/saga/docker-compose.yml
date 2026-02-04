@@ -1,0 +1,167 @@
+services:
+  # ====================== DATABASE ======================
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: pass
+      POSTGRES_MULTIPLE_DATABASES: dtm,orders_db,inventory_db,payments_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./scripts/00-init-databases.sh:/docker-entrypoint-initdb.d/00-init-databases.sh
+      - ./scripts/01-dtm-init.sql:/docker-entrypoint-initdb.d/01-dtm-init.sql
+      - ./scripts/02-orders-schema.sql:/docker-entrypoint-initdb.d/02-orders-schema.sql
+      - ./scripts/03-inventory-schema.sql:/docker-entrypoint-initdb.d/03-inventory-schema.sql
+      - ./scripts/04-payments-schema.sql:/docker-entrypoint-initdb.d/04-payments-schema.sql
+      - ./scripts/05-seed.sql:/docker-entrypoint-initdb.d/05-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - saga-network
+
+  # ====================== DTM COORDINATOR ======================
+  dtm:
+    image: yedf/dtm
+    container_name: dtm
+    command: -d
+    ports:
+      - "36789:36789"
+      - "36790:36790"
+    environment:
+      IS_DOCKER: 1
+      STORE_DRIVER: postgres
+      STORE_HOST: postgres
+      STORE_USER: root
+      STORE_PASSWORD: pass
+      STORE_DB: dtm
+      STORE_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - saga-network
+
+  # ====================== OBSERVABILITY ======================
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4319:4318"    # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - QUERY_MAX_TRACES=2000 
+    networks:
+      - saga-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel_collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./traces_output:/traces 
+    ports:
+      - "4320:4318"    # OTLP HTTP receiver (apps send here)
+      - "4321:4317"    # OTLP gRPC receiver
+      - "8890:8889"
+      - "13134:13133"  # Health check
+    depends_on:
+      - jaeger
+    networks:
+      - saga-network
+
+  # ====================== MICROSERVICES ======================
+  orders-service:
+    container_name: orders_service
+    build:
+      context: ../..
+      dockerfile: dtm/saga/services/orders/Dockerfile
+    ports:
+      - "8081:8080"
+    restart: always
+    environment:
+      SERVICE_NAME: orders-service
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: root
+      DATABASE_PASSWORD: pass
+      DATABASE_NAME: orders_db
+      DTM_SERVER: http://dtm:36789/api/dtmsvr
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+      SERVICE_URL: http://orders-service:8080
+      INVENTORY_SERVICE_URL: http://inventory-service:8080
+      PAYMENTS_SERVICE_URL: http://payments-service:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dtm:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    networks:
+      - saga-network
+
+  inventory-service:
+    container_name: inventory_service
+    build:
+      context: ../..
+      dockerfile: dtm/saga/services/inventory/Dockerfile
+    ports:
+      - "8082:8080"
+    restart: always
+    environment:
+      SERVICE_NAME: inventory-service
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: root
+      DATABASE_PASSWORD: pass
+      DATABASE_NAME: inventory_db
+      DTM_SERVER: http://dtm:36789/api/dtmsvr
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dtm:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    networks:
+      - saga-network
+
+  payments-service:
+    container_name: payments_service
+    build:
+      context: ../..
+      dockerfile: dtm/saga/services/payments/Dockerfile
+    ports:
+      - "8083:8080"
+    restart: always
+    environment:
+      SERVICE_NAME: payments-service
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: root
+      DATABASE_PASSWORD: pass
+      DATABASE_NAME: payments_db
+      DTM_SERVER: http://dtm:36789/api/dtmsvr
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dtm:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    networks:
+      - saga-network
+
+networks:
+  saga-network:
+    driver: bridge

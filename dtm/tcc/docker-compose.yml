@@ -1,0 +1,156 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: tcc-postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: pass
+      POSTGRES_MULTIPLE_DATABASES: dtm,orders_db,inventory_db,payments_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./scripts:/docker-entrypoint-initdb.d
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - tcc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # DTM Server
+  dtm:
+    image: yedf/dtm:latest
+    container_name: dtm
+    environment:
+      STORE_DRIVER: postgres
+      STORE_HOST: postgres
+      STORE_PORT: 5432
+      STORE_USER: root
+      STORE_PASSWORD: pass
+      STORE_DB: dtm
+    ports:
+      - "36789:36789"
+      - "36790:36790"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - tcc-network
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: tcc-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./traces_output:/traces 
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"
+      - "8889:8889"
+    networks:
+      - tcc-network
+
+  # Jaeger (Distributed Tracing)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: tcc-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # gRPC
+    networks:
+      - tcc-network
+
+  # Orders Service
+  orders-service:
+    build:
+      context: ../../../transactions-management-benchmark
+      dockerfile: dtm/tcc/services/orders/Dockerfile
+    container_name: orders_service
+    environment:
+      SERVICE_NAME: orders-service-tcc
+      PORT: 8080
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: root
+      DATABASE_PASSWORD: pass
+      DATABASE_NAME: orders_db
+      DTM_SERVER: http://dtm:36789/api/dtmsvr
+      INVENTORY_SERVICE_URL: http://inventory-service:8081
+      PAYMENT_SERVICE_URL: http://payment-service:8082
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dtm:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    networks:
+      - tcc-network
+
+  # Inventory Service
+  inventory-service:
+    build:
+      context: ../../../transactions-management-benchmark
+      dockerfile: dtm/tcc/services/inventory/Dockerfile
+    container_name: inventory_service
+    environment:
+      SERVICE_NAME: inventory-service-tcc
+      PORT: 8081
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: root
+      DATABASE_PASSWORD: pass
+      DATABASE_NAME: inventory_db
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+    ports:
+      - "8084:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - tcc-network
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ../../../transactions-management-benchmark
+      dockerfile: dtm/tcc/services/payment/Dockerfile
+    container_name: payments_service
+    environment:
+      SERVICE_NAME: payment-service-tcc
+      PORT: 8082
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: root
+      DATABASE_PASSWORD: pass
+      DATABASE_NAME: payments_db
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+    ports:
+      - "8085:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - tcc-network
+
+networks:
+  tcc-network:
+    driver: bridge
+
+volumes:
+  postgres-data:

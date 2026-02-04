@@ -1,0 +1,195 @@
+{
+  "title": "SAGA Transaction Metrics",
+  "tags": ["saga", "dtm", "transactions"],
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 0,
+  "refresh": "5s",
+  "panels": [
+      {
+        "id": 1,
+        "title": "P95 Transaction Duration",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(saga_saga_transaction_duration_seconds_bucket[1m])) by (le)) * 1000",
+            "legendFormat": "P95",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "text": {},
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 2,
+            "noValue": "No data"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Average Transaction Duration",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(saga_saga_transaction_duration_seconds_sum[1m]) / rate(saga_saga_transaction_duration_seconds_count[1m]) * 1000",
+            "legendFormat": "Average",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "text": {},
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 2,
+            "noValue": "No data"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Median (P50) Transaction Duration",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(saga_saga_transaction_duration_seconds_bucket[1m])) by (le)) * 1000",
+            "legendFormat": "Median",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "text": {},
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 2,
+            "noValue": "No data"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Transaction Duration Over Time",
+        "type": "graph",
+        "gridPos": {"h": 9, "w": 24, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(saga_saga_transaction_duration_seconds_bucket[1m])) by (le)) * 1000",
+            "legendFormat": "P95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(saga_saga_transaction_duration_seconds_bucket[1m])) by (le)) * 1000",
+            "legendFormat": "P50 (Median)",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(saga_saga_transaction_duration_seconds_sum[1m]) / rate(saga_saga_transaction_duration_seconds_count[1m]) * 1000",
+            "legendFormat": "Average",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ms",
+            "label": "Duration"
+          },
+          {
+            "format": "short"
+          }
+        ],
+        "xaxis": {
+          "mode": "time"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Transaction Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 17},
+        "targets": [
+          {
+            "expr": "rate(saga_saga_transactions_total[1m])",
+            "legendFormat": "{{success}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "reqps",
+            "label": "Requests/sec"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Active Transactions",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 17},
+        "targets": [
+          {
+            "expr": "saga_saga_transactions_active",
+            "legendFormat": "Active",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Count"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "SAGA Spans Duration (Individual Operations)",
+        "type": "graph",
+        "gridPos": {"h": 9, "w": 24, "x": 0, "y": 25},
+        "targets": [
+          {
+            "expr": "saga_traces_span_metrics_duration_milliseconds_sum{span_name=~\"saga_action_.*\"} / saga_traces_span_metrics_duration_milliseconds_count{span_name=~\"saga_action_.*\"}",
+            "legendFormat": "{{span_name}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ms",
+            "label": "Duration"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      }
+    ]
+  }

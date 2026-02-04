@@ -1,0 +1,60 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+connectors:
+  # Generates metrics from spans automatically
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [2ms, 5ms, 10ms, 20ms, 50ms, 100ms, 200ms, 500ms, 1s, 2s, 5s, 10s]
+    dimensions:
+      - name: http.method
+      - name: http.status_code
+    dimensions_cache_size: 1000
+    aggregation_temporality: "CUMULATIVE"
+    metrics_flush_interval: 15s
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  # Exportador Existente para Jaeger
+  otlphttp/jaeger:
+    endpoint: http://jaeger:4318
+    tls:
+      insecure: true
+  
+  # Exportador Existente para Prometheus
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "saga"
+    const_labels:
+      service: "dtm-saga-ecommerce"
+  
+  # Exportador de Debug (mantido)
+  debug:
+    verbosity: detailed
+
+  file:
+    # O caminho '/traces' deve ser mapeado como um volume no docker-compose!
+    path: /traces/all_traces_otlp.json
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/jaeger, file, spanmetrics, debug] # Adicionado 'file'
+    
+    # Metrics Pipeline: App + SpanMetrics → OTEL Collector → Prometheus
+    metrics:
+      receivers: [otlp, spanmetrics]
+      processors: [batch]
+      exporters: [prometheus, debug]

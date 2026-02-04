@@ -1,0 +1,224 @@
+{
+  "dashboard": {
+    "title": "DTM SAGA - Transaction Metrics",
+    "uid": "dtm-saga-transactions",
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 0,
+    "refresh": "5s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "📊 Transaction Duration - P95",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "histogram_quantile(0.95, sum(rate(saga_saga_transaction_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "P95",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "justifyMode": "auto",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 2,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 100, "color": "yellow"},
+                {"value": 500, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "📈 Transaction Duration - Average",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "(rate(saga_saga_transaction_duration_seconds_sum[5m]) / rate(saga_saga_transaction_duration_seconds_count[5m])) * 1000",
+            "legendFormat": "Average",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "justifyMode": "auto",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 2,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 50, "color": "yellow"},
+                {"value": 200, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "📉 Transaction Duration - Median (P50)",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "histogram_quantile(0.50, sum(rate(saga_saga_transaction_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "Median",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "justifyMode": "auto",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 2,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 30, "color": "yellow"},
+                {"value": 100, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "📊 Transaction Duration Over Time (P50, P95, P99)",
+        "type": "timeseries",
+        "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "histogram_quantile(0.50, sum(rate(saga_saga_transaction_duration_seconds_bucket[1m])) by (le)) * 1000",
+            "legendFormat": "P50 (Median)",
+            "refId": "A"
+          },
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "histogram_quantile(0.95, sum(rate(saga_saga_transaction_duration_seconds_bucket[1m])) by (le)) * 1000",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "histogram_quantile(0.99, sum(rate(saga_saga_transaction_duration_seconds_bucket[1m])) by (le)) * 1000",
+            "legendFormat": "P99",
+            "refId": "C"
+          },
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "(rate(saga_saga_transaction_duration_seconds_sum[1m]) / rate(saga_saga_transaction_duration_seconds_count[1m])) * 1000",
+            "legendFormat": "Average",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 10,
+              "showPoints": "never"
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "calcs": ["lastNotNull", "mean", "max"]
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "📈 Transaction Throughput (Requests/sec)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "rate(saga_saga_transactions_total[1m])",
+            "legendFormat": "Total Transactions/sec",
+            "refId": "A"
+          },
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "rate(saga_saga_transactions_total{success=\"true\"}[1m])",
+            "legendFormat": "Successful Transactions/sec",
+            "refId": "B"
+          },
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "rate(saga_saga_transactions_total{success=\"false\"}[1m])",
+            "legendFormat": "Failed Transactions/sec",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "⏱️ Active Transactions",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+        "targets": [
+          {
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "saga_saga_transactions_active",
+            "legendFormat": "Active Transactions",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "⚠️ IMPORTANTE: Análise Offline Detalhada",
+        "type": "text",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 26},
+        "options": {
+          "mode": "markdown",
+          "content": "## 📊 Métricas Acima são Estimativas\n\n**Limitação**: As métricas acima são baseadas no tempo até `saga.Submit()`, **NÃO incluem o tempo de processamento do DTM**.\n\n### Para Análise Completa por Transação:\n\n1. **Exportar traces do Jaeger**:\n```bash\ncurl -s 'http://localhost:16687/api/traces?service=orders-service&operation=create_order_saga&limit=1000' > traces.json\n```\n\n2. **Processar com script Python**:\n```python\nimport json\nimport numpy as np\n\nwith open('traces.json') as f:\n    data = json.load(f)\n\ndurations = []\nfor trace in data['data']:\n    saga_spans = [s for s in trace['spans'] if s['operationName'].startswith('saga_action_')]\n    total = sum(s['duration'] for s in saga_spans) / 1000  # ms\n    durations.append(total)\n\nprint(f'P50: {np.percentile(durations, 50):.2f}ms')\nprint(f'P95: {np.percentile(durations, 95):.2f}ms')\nprint(f'Mean: {np.mean(durations):.2f}ms')\n```\n\n### Ou use o Jaeger UI:\n- Acesse: http://localhost:16687\n- Filtre: service=`orders-service`, operation=`create_order_saga`\n- Analise traces individuais\n"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,159 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
+)
+
+var (
+	dbPool *pgxpool.Pool
+	tracer trace.Tracer
+)
+
+func main() {
+	// Initialize OpenTelemetry Tracer (sem metrics)
+	tp, err := initTracer()
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Printf("Error shutting down tracer: %v", err)
+		}
+	}()
+
+	tracer = tp.Tracer("payment-service-tcc")
+
+	// Initialize database
+	dbPool, err = initDB()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer dbPool.Close()
+
+	// Setup repositories and use cases
+	paymentRepository := NewPostgresPaymentRepository(dbPool)
+	paymentUseCase := NewPaymentUseCase(paymentRepository)
+
+	// Setup Gin router
+	r := gin.Default()
+	r.Use(gin.Logger())
+
+	// Health check
+	r.GET("/health", HandleHealth())
+
+	// TCC endpoints
+	r.POST("/api/payment/try", HandleTryDebitWallet(paymentUseCase))
+	r.POST("/api/payment/confirm", HandleConfirmDebitWallet(paymentUseCase))
+	r.POST("/api/payment/cancel", HandleCancelDebitWallet(paymentUseCase))
+
+	port := getEnv("PORT", "8082")
+	log.Printf("🚀 Payment Service (TCC) listening on port %s", port)
+	srv := &http.Server{
+		Addr:         ":" + port,
+		Handler:      r,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  30 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+func initDB() (*pgxpool.Pool, error) {
+	dsn := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable&pool_max_conns=25&pool_min_conns=5",
+		getEnv("DATABASE_USER", "root"),
+		getEnv("DATABASE_PASSWORD", "pass"),
+		getEnv("DATABASE_HOST", "postgres"),
+		getEnv("DATABASE_PORT", "5432"),
+		getEnv("DATABASE_NAME", "payments_db"),
+	)
+
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database config: %w", err)
+	}
+
+	config.MaxConns = 30
+	config.MaxConns = 10
+	config.MaxConnLifetime = time.Hour
+	config.MaxConnIdleTime = 30 * time.Minute
+	config.HealthCheckPeriod = 1 * time.Minute
+
+	ctx := context.Background()
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create connection pool: %w", err)
+	}
+
+	for i := 0; i < 30; i++ {
+		if err := pool.Ping(ctx); err == nil {
+			log.Println("✅ Connected to payments database")
+			return pool, nil
+		}
+		log.Printf("⏳ Waiting for database... (%d/30)", i+1)
+		time.Sleep(1 * time.Second)
+	}
+
+	pool.Close()
+	return nil, fmt.Errorf("failed to connect to database after 30 attempts")
+}
+
+func initTracer() (*sdktrace.TracerProvider, error) {
+	ctx := context.Background()
+
+	otlpEndpoint := getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4318")
+
+	exporter, err := otlptracehttp.New(ctx,
+		otlptracehttp.WithEndpoint(otlpEndpoint),
+		otlptracehttp.WithInsecure(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			semconv.ServiceName(getEnv("SERVICE_NAME", "payment-service-tcc")),
+			semconv.ServiceVersion("1.0.0"),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	)
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	return tp, nil
+}
+
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}

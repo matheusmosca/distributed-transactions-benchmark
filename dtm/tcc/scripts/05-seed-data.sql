@@ -1,0 +1,41 @@
+-- Seed para o banco de dados de Inventário
+-- Usa UUIDs fixos e determinísticos para reprodutibilidade
+
+\c inventory_db;
+
+-- Habilita extensão para gerar UUIDs
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Insere produtos com UUIDs fixos (primeiros 10 produtos com UUIDs conhecidos)
+INSERT INTO products_inventory (product_id, product_name, current_stock, stock_available) VALUES
+('550e8400-e29b-41d4-a716-446655440001', 'Product 00001', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440002', 'Product 00002', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440003', 'Product 00003', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440004', 'Product 00004', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440005', 'Product 00005', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440006', 'Product 00006', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440007', 'Product 00007', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440008', 'Product 00008', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440009', 'Product 00009', 900000000, 900000000),
+('550e8400-e29b-41d4-a716-446655440010', 'Product 00010', 900000000, 900000000)
+ON CONFLICT (product_id) DO NOTHING;
+
+-- Cria usuários com UUIDs fixos
+\c payments_db;
+
+-- Habilita extensão para gerar UUIDs
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Insere usuários com UUIDs fixos (primeiros 10 usuários com UUIDs conhecidos)
+INSERT INTO wallets (user_id, current_amount, available_amount) VALUES
+('6ba7b810-9dad-11d1-80b4-00c04fd43001', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43002', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43003', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43004', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43005', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43006', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43007', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43008', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43009', 900000000, 900000000),
+('6ba7b810-9dad-11d1-80b4-00c04fd43010', 900000000, 900000000)
+ON CONFLICT (user_id) DO NOTHING;
