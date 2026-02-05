@@ -82,7 +82,7 @@ To run the benchmark, you need the following dependencies:
 
 2. **Run the benchmark for a specific protocol:**
    ```bash
-   # Inside /benchmark
+   # Inside /benchmark folder
    python3 run_benchmark.py <tcc|2pc|saga>
    ```
 
@@ -100,7 +100,7 @@ To run the benchmark, you need the following dependencies:
 After running the benchmarks, you can generate visualizations and analysis using the scripts in `/benchmark`. The results will appear in the `/benchmark/results` folder.
 
 ```bash
-# Inside /benchmark
+# Inside /benchmark folder
 
 # Generate reliability graphs
 python consistency_and_reliability_data_processing.py
