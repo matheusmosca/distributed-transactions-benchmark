@@ -1,5 +1,8 @@
 .tool-versions
 
+/dtm/saga/traces_output
+/dtm/2pc/traces_output
+/dtm/tcc/traces_output
 
 /tcc
 /saga

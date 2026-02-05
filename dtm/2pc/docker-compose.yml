@@ -42,6 +42,7 @@ services:
 
   # OpenTelemetry Collector
   otel-collector:
+    user: "0:0"
     image: otel/opentelemetry-collector-contrib:latest
     container_name: 2pc-otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]

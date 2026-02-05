@@ -61,6 +61,7 @@ services:
       - saga-network
 
   otel-collector:
+    user: "0:0"
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel_collector
     command: ["--config=/etc/otel-collector-config.yaml"]
